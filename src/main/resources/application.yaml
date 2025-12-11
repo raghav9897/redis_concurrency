@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: redis
+
+  redis:
+    host: localhost
+    port: 6379
+
+playback:
+  max-streams: 2
+  heartbeat-timeout-ms: 10000
+server:
+  port: 9090
+
