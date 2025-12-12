@@ -1,46 +1,39 @@
--- start_playback.lua
--- KEYS[1] = key
--- ARGV[1] = nowMillis
--- ARGV[2] = timeoutMillis
--- ARGV[3] = sessionId
--- ARGV[4] = sessionJson
--- ARGV[5] = maxStreams
+local indexKey = KEYS[1]
+local subscriberId = ARGV[1]
+local deviceId = ARGV[2]
+local ttl = tonumber(ARGV[3])
+local maxDevices = tonumber(ARGV[4])
+local now = tonumber(ARGV[5])
 
+local playbackKey = "playback:" .. subscriberId .. ":" .. deviceId
 
-local key = KEYS[1]
-local now = tonumber(ARGV[1])
-local timeout = tonumber(ARGV[2])
-local sessionId = ARGV[3]
-local sessionJson = ARGV[4]
-local maxStreams = tonumber(ARGV[5])
+-- Step 1: read all devices
+local devices = redis.call("SMEMBERS", indexKey)
 
-
-local fields = redis.call('HKEYS', key)
+-- Step 2: remove stale devices
 local active = 0
-
-
-for i=1,#fields do
-local sid = fields[i]
-local val = redis.call('HGET', key, sid)
-if val then
-local ok, obj = pcall(cjson.decode, val)
-if ok and obj["lastPing"] then
-if (now - obj["lastPing"]) < timeout then
-active = active + 1
-else
-redis.call('HDEL', key, sid)
-end
-else
-redis.call('HDEL', key, sid)
-end
-end
+for _, dev in ipairs(devices) do
+    local key = "playback:" .. subscriberId .. ":" .. dev
+    if redis.call("EXISTS", key) == 1 then
+        active = active + 1
+    else
+        redis.call("SREM", indexKey, dev)
+    end
 end
 
-
-if active >= maxStreams then
-return -1
+-- Step 3: limit check
+if active >= maxDevices then
+    return {err = "LIMIT_REACHED"}
 end
 
+-- Step 4: register
+redis.call("HMSET",
+    playbackKey,
+    "deviceId", deviceId,
+    "subscriberId", subscriberId,
+    "lastSeen", now)
 
-redis.call('HSET', key, sessionId, sessionJson)
-return 1
+redis.call("EXPIRE", playbackKey, ttl)
+redis.call("SADD", indexKey, deviceId)
+
+return "OK"
