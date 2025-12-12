@@ -7,6 +7,7 @@ local now = tonumber(ARGV[5])
 
 local playbackKey = "playback:" .. subscriberId .. ":" .. deviceId
 
+redis.call("SADD","subscribers:index",subscriberId)
 -- Step 1: read all devices
 local devices = redis.call("SMEMBERS", indexKey)
 
@@ -23,7 +24,7 @@ end
 
 -- Step 3: limit check
 if active >= maxDevices then
-    return {err = "LIMIT_REACHED"}
+    return -1
 end
 
 -- Step 4: register
@@ -36,4 +37,4 @@ redis.call("HMSET",
 redis.call("EXPIRE", playbackKey, ttl)
 redis.call("SADD", indexKey, deviceId)
 
-return "OK"
+return 1
