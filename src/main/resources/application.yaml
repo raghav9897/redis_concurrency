@@ -10,5 +10,16 @@ playback:
   max-streams: 2
   heartbeat-timeout-ms: 10000
 server:
-  port: 9090
+  port: 9191
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info
+  endpoint:
+    prometheus:
+      enabled: true
+
+
 
